@@ -19,7 +19,35 @@ import { requestPermission } from './src/modules/fileSource';
 const DEFAULT_TRANSITION_TIME = 10; // 초
 const SETTINGS_AUTO_HIDE_MS = 5000; // 5초 후 설정 패널 자동 숨김
 
-export default function App() {
+class ErrorBoundary extends React.Component {
+  state = { hasError: false, error: null };
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('[ErrorBoundary] Caught error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, backgroundColor: '#111', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <Text style={{ color: '#ff5555', fontSize: 20, fontWeight: 'bold', marginBottom: 12 }}>
+            앱 실행 중 오류가 발생했습니다
+          </Text>
+          <Text style={{ color: '#eee', fontSize: 14, fontFamily: 'monospace', textAlign: 'center' }}>
+            {this.state.error?.toString()}
+          </Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function App() {
   // ── 화면 꺼짐 방지 ──
   useKeepAwake();
 
@@ -220,3 +248,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+export default function AppWrapper() {
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  );
+}
+

@@ -97,9 +97,6 @@ function VideoPlayer({ asset, transitionTime, onNext }) {
         clearTimeout(timerRef.current);
         timerRef.current = null;
       }
-      if (videoRef.current) {
-        videoRef.current.unloadAsync().catch(() => {});
-      }
     };
   }, [asset.uri]);
 

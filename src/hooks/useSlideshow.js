@@ -48,12 +48,15 @@ export function useSlideshow(assets, transitionTime) {
         }
     }, []);
 
-    // 다음 이미지 프리페치
+    // 다음 이미지 프리페치 (원격 URL인 경우에만 수행, 로컬 파일은 기기에 이미 존재)
     const prefetchNext = useCallback(() => {
         const peek = queueRef.current.peekNext();
         setNextAsset(peek);
         if (peek?.uri && peek.mediaType !== 'video') {
-            ExpoImage.prefetch(peek.uri).catch(() => { });
+            const isRemote = peek.uri.startsWith('http://') || peek.uri.startsWith('https://');
+            if (isRemote) {
+                ExpoImage.prefetch(peek.uri).catch(() => { });
+            }
         }
     }, []);
 
