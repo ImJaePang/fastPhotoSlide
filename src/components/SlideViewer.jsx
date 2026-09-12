@@ -1,7 +1,7 @@
 import React, { useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, Dimensions, PixelRatio } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -81,59 +81,32 @@ function isPortraitAsset(asset) {
 }
 
 // ─────────────────────────────────────────
-// 동영상 플레이어
+// 동영상 플레이어 (expo-video 기반 - New Architecture 호환)
 // ─────────────────────────────────────────
 function VideoPlayer({ asset, transitionTime, onNext }) {
-  const videoRef = useRef(null);
-  const timerRef = useRef(null);
-  const [shouldLoop, setShouldLoop] = useState(false);
-  const hasScheduled = useRef(false);
+  const player = useVideoPlayer(asset.uri, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
 
   useEffect(() => {
-    hasScheduled.current = false;
-    setShouldLoop(false);
+    const duration = Math.max(3000, (transitionTime || 10) * 1000);
+    const timer = setTimeout(() => {
+      onNext();
+    }, duration);
+
     return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
+      clearTimeout(timer);
     };
-  }, [asset.uri]);
-
-  const handlePlaybackStatusUpdate = useCallback(
-    (status) => {
-      if (!status.isLoaded) return;
-
-      if (status.durationMillis && !hasScheduled.current) {
-        hasScheduled.current = true;
-        const videoDurationSec = status.durationMillis / 1000;
-        const transTimeSec = transitionTime;
-
-        if (videoDurationSec < transTimeSec) {
-          setShouldLoop(true);
-          timerRef.current = setTimeout(() => {
-            onNext();
-          }, transTimeSec * 1000);
-        }
-      }
-
-      if (status.didJustFinish && !shouldLoop) {
-        onNext();
-      }
-    },
-    [onNext, transitionTime, shouldLoop]
-  );
+  }, [asset.uri, transitionTime, onNext]);
 
   return (
-    <Video
-      ref={videoRef}
-      source={{ uri: asset.uri }}
+    <VideoView
+      player={player}
       style={StyleSheet.absoluteFill}
-      resizeMode={ResizeMode.CONTAIN}
-      shouldPlay
-      isMuted
-      isLooping={shouldLoop}
-      onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+      contentFit="contain"
+      nativeControls={false}
     />
   );
 }
