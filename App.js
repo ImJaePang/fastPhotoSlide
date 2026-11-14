@@ -1,26 +1,29 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-  StatusBar,
-  Text,
-} from 'react-native';
+import { View, StyleSheet, StatusBar, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useKeepAwake } from 'expo-keep-awake';
 import { Image as ExpoImage } from 'expo-image';
 import { useSlideshow } from './src/hooks/useSlideshow';
 import { useTransitionSettings } from './src/hooks/useTransitionSettings';
+import { usePreferences } from './src/hooks/usePreferences';
 import TransitionSlideViewer from './src/components/TransitionSlideViewer';
 import SettingsOverlay from './src/components/SettingsOverlay';
 import AlbumPickerModal from './src/components/AlbumPickerModal';
 import NavigationOverlay from './src/components/NavigationOverlay';
-import { requestPermission } from './src/modules/fileSource';
+import { Button } from './src/components/ui';
+import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
+import { requestPermission, getAlbums, getAssetsFromAlbum } from './src/modules/fileSource';
 
-const DEFAULT_TRANSITION_TIME = 10; // 초
-const SETTINGS_AUTO_HIDE_MS = 5000; // 5초 후 설정 패널 자동 숨김
+const SETTINGS_AUTO_HIDE_MS = 10000; // 10초 후 설정 패널 자동 숨김
+const ERROR_RESTART_MS = 3000; // 오류 발생 시 자동 복구까지 대기 시간
 
+/**
+ * 렌더링 오류가 나도 앱이 멈춰 있지 않도록 잠시 후 자동으로 다시 시작합니다.
+ * (디지털 액자는 사람이 곁에 없는 경우가 많기 때문)
+ */
 class ErrorBoundary extends React.Component {
-  state = { hasError: false, error: null };
+  state = { hasError: false, error: null, attempt: 0 };
+  retryTimer = null;
 
   static getDerivedStateFromError(error) {
     return { hasError: true, error };
@@ -28,203 +31,215 @@ class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('[ErrorBoundary] Caught error:', error, errorInfo);
+    clearTimeout(this.retryTimer);
+    this.retryTimer = setTimeout(() => {
+      this.setState((s) => ({ hasError: false, error: null, attempt: s.attempt + 1 }));
+    }, ERROR_RESTART_MS);
+  }
+
+  componentWillUnmount() {
+    clearTimeout(this.retryTimer);
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <View style={{ flex: 1, backgroundColor: '#111', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-          <Text style={{ color: '#ff5555', fontSize: 20, fontWeight: 'bold', marginBottom: 12 }}>
-            앱 실행 중 오류가 발생했습니다
-          </Text>
-          <Text style={{ color: '#eee', fontSize: 14, fontFamily: 'monospace', textAlign: 'center' }}>
-            {this.state.error?.toString()}
-          </Text>
+        <View style={styles.errorBox}>
+          <Text style={styles.errorTitle}>오류가 발생했습니다. 잠시 후 자동으로 다시 시작합니다…</Text>
+          <Text style={styles.errorBody}>{this.state.error?.toString()}</Text>
         </View>
       );
     }
-    return this.props.children;
+    return <React.Fragment key={this.state.attempt}>{this.props.children}</React.Fragment>;
   }
 }
 
 function App() {
-  // ── 화면 꺼짐 방지 ──
   useKeepAwake();
+  const { colors } = useTheme();
+
+  const { prefs, loaded: prefsLoaded, update: updatePrefs } = usePreferences();
+  const transitionTime = prefs.transitionTime;
 
   const [assets, setAssets] = useState([]);
-  const [transitionTime, setTransitionTime] = useState(DEFAULT_TRANSITION_TIME);
   const [albumTitle, setAlbumTitle] = useState('');
+  const [albumId, setAlbumId] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showAlbumPicker, setShowAlbumPicker] = useState(false);
   const [hasPermission, setHasPermission] = useState(null);
+  const [booting, setBooting] = useState(true);
   const hideSettingsTimer = useRef(null);
 
-  const { currentAsset, nextAsset, next, prev, isPlaying, pause, resume } = useSlideshow(
-    assets,
-    transitionTime
-  );
+  const { currentAsset, next, prev, isPlaying, pause, resume } = useSlideshow(assets, transitionTime);
 
   const {
     settings: transitionSettings,
-    loaded: settingsLoaded,
     setMode,
     setSingleEffect,
     toggleMultiEffect,
     setDuration,
   } = useTransitionSettings();
 
-  // 앱 시작 시 디스크 캐시 초기화 + 권한 요청
+  // 앱 시작 시 이미지 캐시 정리
   useEffect(() => {
-    // 저장 공간 확보를 위해 이전 디스크 캐시 삭제
     ExpoImage.clearDiskCache().catch(() => { });
     ExpoImage.clearMemoryCache().catch(() => { });
-    console.log('[App] 디스크/메모리 캐시 초기화 완료');
-
-    requestPermission().then((granted) => {
-      setHasPermission(granted);
-      if (granted) setShowAlbumPicker(true);
-    });
   }, []);
 
-  // 설정 패널 자동 숨김
+  const applyAlbum = useCallback((newAssets, title, id) => {
+    setAssets(newAssets);
+    setAlbumTitle(title);
+    setAlbumId(id);
+    setShowSettings(false);
+    updatePrefs({ lastAlbumId: id, lastAlbumTitle: title });
+  }, [updatePrefs]);
+
+  // 권한 요청 → 마지막으로 보던 앨범 자동 재생 (없으면 앨범 선택 창)
+  useEffect(() => {
+    if (!prefsLoaded) return;
+    let cancelled = false;
+    (async () => {
+      const granted = await requestPermission();
+      if (cancelled) return;
+      setHasPermission(granted);
+      if (!granted) { setBooting(false); return; }
+
+      if (prefs.lastAlbumId) {
+        try {
+          const albums = await getAlbums();
+          const last = albums.find((a) => a.id === prefs.lastAlbumId);
+          if (last) {
+            const items = await getAssetsFromAlbum(last);
+            if (!cancelled && items.length > 0) {
+              setAssets(items);
+              setAlbumTitle(last.title);
+              setAlbumId(last.id);
+              setBooting(false);
+              return;
+            }
+          }
+        } catch (e) {
+          console.warn('[App] 마지막 앨범 복원 실패:', e);
+        }
+      }
+      if (!cancelled) {
+        setShowAlbumPicker(true);
+        setBooting(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [prefsLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── 설정 패널 자동 숨김 ──
   const scheduleHideSettings = useCallback(() => {
-    if (hideSettingsTimer.current) clearTimeout(hideSettingsTimer.current);
+    clearTimeout(hideSettingsTimer.current);
     hideSettingsTimer.current = setTimeout(() => setShowSettings(false), SETTINGS_AUTO_HIDE_MS);
   }, []);
 
+  useEffect(() => () => clearTimeout(hideSettingsTimer.current), []);
+
+  const openSettings = useCallback(() => {
+    setShowSettings(true);
+    scheduleHideSettings();
+  }, [scheduleHideSettings]);
+
   const handleCenterTap = useCallback(() => {
-    if (!showSettings) {
-      setShowSettings(true);
-      scheduleHideSettings();
-    }
-  }, [showSettings, scheduleHideSettings]);
+    if (!showSettings) openSettings();
+  }, [showSettings, openSettings]);
 
   const handleCloseSettings = useCallback(() => {
-    if (hideSettingsTimer.current) clearTimeout(hideSettingsTimer.current);
+    clearTimeout(hideSettingsTimer.current);
     setShowSettings(false);
   }, []);
 
-  const handleAlbumSelected = useCallback((newAssets, title) => {
-    setAssets(newAssets);
-    setAlbumTitle(title);
-    setShowSettings(false);
-  }, []);
+  const handleOpenAlbumPicker = useCallback(() => {
+    handleCloseSettings();
+    setShowAlbumPicker(true);
+  }, [handleCloseSettings]);
 
-  const handleTogglePlay = useCallback(() => {
-    if (isPlaying) {
-      pause();
-    } else {
-      resume();
-    }
-  }, [isPlaying, pause, resume]);
+  const handleTogglePlay = useCallback(() => (isPlaying ? pause() : resume()), [isPlaying, pause, resume]);
+  const handlePrev = useCallback(() => { if (!showSettings) prev(); }, [prev, showSettings]);
+  const handleNext = useCallback(() => { if (!showSettings) next(); }, [next, showSettings]);
 
-  const handlePrev = useCallback(() => {
-    if (showSettings) return; // 설정 열려있으면 무시
-    prev();
-  }, [prev, showSettings]);
+  const settingsOverlay = (
+    <SettingsOverlay
+      visible={showSettings}
+      isPlaying={isPlaying}
+      hasSlides={assets.length > 0}
+      transitionTime={transitionTime}
+      currentAlbumTitle={albumTitle}
+      transitionSettings={transitionSettings}
+      onTogglePlay={handleTogglePlay}
+      onOpenAlbumPicker={handleOpenAlbumPicker}
+      onTransitionTimeChange={(v) => updatePrefs({ transitionTime: v })}
+      onClose={handleCloseSettings}
+      onInteraction={scheduleHideSettings}
+      onTransitionModeChange={setMode}
+      onSingleEffectChange={setSingleEffect}
+      onMultiEffectToggle={toggleMultiEffect}
+      onTransitionDurationChange={setDuration}
+    />
+  );
 
-  const handleNext = useCallback(() => {
-    if (showSettings) return;
-    next();
-  }, [next, showSettings]);
+  const albumModal = (
+    <AlbumPickerModal
+      visible={showAlbumPicker}
+      currentAlbumId={albumId}
+      onClose={() => setShowAlbumPicker(false)}
+      onAlbumSelected={applyAlbum}
+    />
+  );
 
   // ── 권한 거부 화면 ──
   if (hasPermission === false) {
     return (
-      <GestureHandlerRootView style={styles.container}>
+      <GestureHandlerRootView style={[styles.center, { backgroundColor: colors.background }]}>
         <StatusBar hidden />
-        <Text style={styles.permissionText}>
-          미디어 접근 권한이 필요합니다.{'\n'}
-          설정에서 권한을 허용해 주세요.
+        <Text style={[styles.heading, { color: colors.foreground }]}>미디어 접근 권한이 필요합니다</Text>
+        <Text style={[styles.body, { color: colors.mutedForeground }]}>
+          기기 설정에서 사진 및 동영상 권한을 허용한 뒤 앱을 다시 실행해 주세요.
         </Text>
       </GestureHandlerRootView>
     );
   }
 
-  // ── 앨범 선택 전 초기 화면 ──
-  if (assets.length === 0 && !showAlbumPicker) {
+  // ── 앨범이 아직 없는 초기 화면 ──
+  if (assets.length === 0) {
     return (
-      <GestureHandlerRootView style={styles.container}>
-        <NavigationOverlay
-          onPrev={handlePrev}
-          onNext={handleNext}
-          onCenterTap={handleCenterTap}
-        >
-          <View style={styles.container}>
-            <StatusBar hidden />
-            <Text style={styles.emptyText}>화면을 탭하여 앨범을 선택하세요</Text>
-            <SettingsOverlay
-              visible={showSettings}
-              isPlaying={isPlaying}
-              transitionTime={transitionTime}
-              currentAlbumTitle={albumTitle}
-              transitionSettings={transitionSettings}
-              onTogglePlay={handleTogglePlay}
-              onOpenAlbumPicker={() => {
-                handleCloseSettings();
-                setShowAlbumPicker(true);
-              }}
-              onTransitionTimeChange={setTransitionTime}
-              onClose={handleCloseSettings}
-              onTransitionModeChange={setMode}
-              onSingleEffectChange={setSingleEffect}
-              onMultiEffectToggle={toggleMultiEffect}
-              onTransitionDurationChange={setDuration}
-            />
-            <AlbumPickerModal
-              visible={showAlbumPicker}
-              onClose={() => setShowAlbumPicker(false)}
-              onAlbumSelected={handleAlbumSelected}
-            />
+      <GestureHandlerRootView style={[styles.center, { backgroundColor: colors.background }]}>
+        <StatusBar hidden />
+        {!booting && (
+          <View style={styles.emptyWrap}>
+            <Text style={[styles.heading, { color: colors.foreground }]}>디지털 액자</Text>
+            <Text style={[styles.body, { color: colors.mutedForeground }]}>
+              재생할 앨범을 선택해 슬라이드쇼를 시작하세요.
+            </Text>
+            <View style={styles.emptyButtons}>
+              <Button title="앨범 선택" size="lg" onPress={() => setShowAlbumPicker(true)} />
+              <Button title="설정" size="lg" variant="outline" onPress={openSettings} />
+            </View>
           </View>
-        </NavigationOverlay>
+        )}
+        {settingsOverlay}
+        {albumModal}
       </GestureHandlerRootView>
     );
   }
 
-  // ── 메인 슬라이드쇼 화면 ──
+  // ── 슬라이드쇼 화면 ──
   return (
     <GestureHandlerRootView style={styles.container}>
-      <NavigationOverlay
-        onPrev={handlePrev}
-        onNext={handleNext}
-        onCenterTap={handleCenterTap}
-      >
+      <NavigationOverlay onPrev={handlePrev} onNext={handleNext} onCenterTap={handleCenterTap}>
         <View style={styles.container}>
           <StatusBar hidden />
-
           <TransitionSlideViewer
             asset={currentAsset}
-            nextAsset={nextAsset}
             transitionTime={transitionTime}
             transitionSettings={transitionSettings}
             onNext={next}
           />
-
-          <SettingsOverlay
-            visible={showSettings}
-            isPlaying={isPlaying}
-            transitionTime={transitionTime}
-            currentAlbumTitle={albumTitle}
-            transitionSettings={transitionSettings}
-            onTogglePlay={handleTogglePlay}
-            onOpenAlbumPicker={() => {
-              handleCloseSettings();
-              setShowAlbumPicker(true);
-            }}
-            onTransitionTimeChange={setTransitionTime}
-            onClose={handleCloseSettings}
-            onTransitionModeChange={setMode}
-            onSingleEffectChange={setSingleEffect}
-            onMultiEffectToggle={toggleMultiEffect}
-            onTransitionDurationChange={setDuration}
-          />
-
-          <AlbumPickerModal
-            visible={showAlbumPicker}
-            onClose={() => setShowAlbumPicker(false)}
-            onAlbumSelected={handleAlbumSelected}
-          />
+          {settingsOverlay}
+          {albumModal}
         </View>
       </NavigationOverlay>
     </GestureHandlerRootView>
@@ -232,28 +247,23 @@ function App() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  permissionText: {
-    color: '#aaa',
-    fontSize: 18,
-    textAlign: 'center',
-    lineHeight: 30,
-  },
-  emptyText: {
-    color: '#555',
-    fontSize: 18,
-    textAlign: 'center',
-  },
+  container: { flex: 1, backgroundColor: '#000' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
+  emptyWrap: { alignItems: 'center', gap: 12 },
+  emptyButtons: { flexDirection: 'row', gap: 12, marginTop: 20 },
+  heading: { fontSize: 28, fontWeight: '700', letterSpacing: -0.5, textAlign: 'center' },
+  body: { fontSize: 16, lineHeight: 24, textAlign: 'center' },
+  errorBox: { flex: 1, backgroundColor: '#09090b', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  errorTitle: { color: '#f87171', fontSize: 18, fontWeight: '600', marginBottom: 12 },
+  errorBody: { color: '#a1a1aa', fontSize: 13, fontFamily: 'monospace', textAlign: 'center' },
 });
 
 export default function AppWrapper() {
   return (
     <ErrorBoundary>
-      <App />
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }
-

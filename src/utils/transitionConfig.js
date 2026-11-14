@@ -11,11 +11,12 @@ export const TRANSITION_MODES = {
 
 // ─── 트랜지션 효과 목록 ───
 export const TRANSITION_EFFECTS = [
-    { id: 'fade', label: 'Fade', emoji: '🌫' },
-    { id: 'slide', label: 'Slide', emoji: '➡️' },
-    { id: 'zoom', label: 'Zoom', emoji: '🔍' },
-    { id: 'blur', label: 'Blur', emoji: '💫' },
+    { id: 'fade', label: 'Fade' },
+    { id: 'slide', label: 'Slide' },
+    { id: 'zoom', label: 'Zoom' },
 ];
+
+export const VALID_EFFECT_IDS = TRANSITION_EFFECTS.map((e) => e.id);
 
 // ─── 전환 시간 프리셋 (초) ───
 export const DURATION_PRESETS = [0.8, 1.0, 1.5, 2.0, 3.0];

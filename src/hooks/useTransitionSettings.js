@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
     DEFAULT_TRANSITION_SETTINGS,
     STORAGE_KEY,
+    VALID_EFFECT_IDS,
 } from '../utils/transitionConfig';
 
 /**
@@ -18,6 +19,10 @@ export function useTransitionSettings() {
             .then((json) => {
                 if (json) {
                     const saved = JSON.parse(json);
+                    // 제거된 효과(예: blur)가 저장돼 있으면 정리
+                    const multi = (saved.multiEffects || []).filter((e) => VALID_EFFECT_IDS.includes(e));
+                    saved.multiEffects = multi.length ? multi : ['fade'];
+                    if (!VALID_EFFECT_IDS.includes(saved.singleEffect)) saved.singleEffect = 'fade';
                     setSettings((prev) => ({ ...prev, ...saved }));
                 }
             })
