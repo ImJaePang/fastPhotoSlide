@@ -85,9 +85,12 @@ npm run android
 ### 설치 파일
 - 빌드된 APK는 저장소에 포함하지 않고 [GitHub Releases](https://github.com/ImJaePang/fastPhotoSlide/releases)에서 배포합니다.
 - 최신 릴리스의 `photoViewer.apk`를 안드로이드 기기에 내려받아 설치하세요. (출처를 알 수 없는 앱 설치 허용 필요)
-- 직접 빌드하려면:
+- 직접 빌드하려면 (`android/` 폴더는 생성물이라 저장소에 없으므로 먼저 생성합니다):
 
 ```bash
+npm install
+npx expo prebuild --platform android
 cd android
 ./gradlew assembleRelease   # 결과물: android/app/build/outputs/apk/release/app-release.apk
 ```
+- 릴리스 배포 절차는 [RELEASING.md](./RELEASING.md)를 참고하세요.
