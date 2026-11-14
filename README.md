@@ -83,4 +83,11 @@ npm run android
 ```
 
 ### 설치 파일
-- 루트 경로에 빌드된 APK 파일(`photoViewer.apk`)이 포함되어 있어 안드로이드 기기에 바로 설치하여 테스트할 수 있습니다.
+- 빌드된 APK는 저장소에 포함하지 않고 [GitHub Releases](https://github.com/ImJaePang/fastPhotoSlide/releases)에서 배포합니다.
+- 최신 릴리스의 `photoViewer.apk`를 안드로이드 기기에 내려받아 설치하세요. (출처를 알 수 없는 앱 설치 허용 필요)
+- 직접 빌드하려면:
+
+```bash
+cd android
+./gradlew assembleRelease   # 결과물: android/app/build/outputs/apk/release/app-release.apk
+```

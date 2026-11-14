@@ -43,3 +43,6 @@ yarn-error.*
 # IDE
 .idea/
 
+
+# Build artifacts (APK는 GitHub Releases로 배포)
+*.apk
