@@ -1,4 +1,4 @@
-# PhotoViewer (디지털 액자) - Claude 작업 지침
+# AlbumLoop (디지털 액자) - Claude 작업 지침
 
 React Native + Expo(SDK 55) 안드로이드 디지털 액자 앱. 자세한 내용은 `README.md` 참고.
 
