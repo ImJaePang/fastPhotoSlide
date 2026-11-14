@@ -14,20 +14,25 @@ export function Button({ title, onPress, variant = 'default', size = 'md', style
   }[variant];
   const h = size === 'sm' ? 36 : size === 'lg' ? 52 : 44;
 
+  // 배경/테두리는 정적 View에, 터치 효과(리플)는 안쪽 Pressable에 분리.
+  // Pressable의 함수형 style은 안드로이드에서 테마 전환 직후 배경색 갱신이 늦어지는 문제가 있었음.
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      android_ripple={{ color: colors.accent }}
-      style={({ pressed }) => [
+    <View
+      style={[
         styles.btn,
-        { height: h, backgroundColor: v.bg, borderColor: v.border, opacity: disabled ? 0.5 : pressed ? 0.85 : 1 },
-        variant === 'ghost' && pressed && { backgroundColor: colors.accent },
+        { height: h, backgroundColor: v.bg, borderColor: v.border, opacity: disabled ? 0.5 : 1 },
         style,
       ]}
     >
-      <Text style={[styles.btnText, { color: v.fg, fontSize: size === 'sm' ? 14 : 15 }, textStyle]}>{title}</Text>
-    </Pressable>
+      <Pressable
+        onPress={onPress}
+        disabled={disabled}
+        android_ripple={{ color: `${v.fg}33` }}
+        style={styles.btnInner}
+      >
+        <Text style={[styles.btnText, { color: v.fg, fontSize: size === 'sm' ? 14 : 15 }, textStyle]}>{title}</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -115,10 +120,13 @@ const styles = StyleSheet.create({
   btn: {
     borderRadius: RADIUS.md,
     borderWidth: 1,
+    overflow: 'hidden',
+  },
+  btnInner: {
+    flex: 1,
     paddingHorizontal: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
   },
   btnText: { fontWeight: '600' },
   card: { borderRadius: RADIUS.xl, borderWidth: 1, padding: 20 },

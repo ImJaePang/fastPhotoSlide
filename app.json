@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "디지털 액자",
-    "slug": "photoViewer",
+    "name": "AlbumLoop",
+    "slug": "albumloop",
     "version": "1.0.0",
     "orientation": "landscape",
     "icon": "./assets/icon.png",
@@ -9,19 +9,19 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#000000"
+      "backgroundColor": "#2c2d42"
     },
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#000000",
+        "backgroundColor": "#2c2d42",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "package": "com.photoviewer.digitalframe",
+      "package": "com.imjaepang.albumloop",
       "largeHeap": true,
       "permissions": [
         "android.permission.READ_MEDIA_IMAGES",

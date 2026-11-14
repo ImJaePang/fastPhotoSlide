@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { View, StyleSheet, PixelRatio, useWindowDimensions } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -66,13 +66,26 @@ function isPortraitAsset(asset) {
   return asset.height > asset.width;
 }
 
+/**
+ * source 객체를 값이 같으면 같은 참조로 유지하는 ExpoImage 래퍼.
+ * 부모가 리렌더될 때마다 새 source 객체가 전달되면 이미지가 다시 로드되며 한두 프레임 비어 보임(번쩍임).
+ */
+function StableImage({ uri, width, height, ...rest }) {
+  const source = useMemo(
+    () => (width && height ? { uri, width, height } : { uri }),
+    [uri, width, height]
+  );
+  return <ExpoImage source={source} {...rest} />;
+}
+
 /** 이미지 로드 실패 시 active 레이어만 다음 슬라이드로 넘김 */
-function useSkipOnError(active, onNext) {
+function useSkipOnError(active, onNext, onReady) {
   return React.useCallback(() => {
+    onReady?.();
     if (!active) return;
     console.warn('[SlideViewer] 이미지 로드 실패 → 다음 슬라이드로 이동');
     setTimeout(() => onNext?.(), ERROR_SKIP_MS);
-  }, [active, onNext]);
+  }, [active, onNext, onReady]);
 }
 
 // ─────────────────────────────────────────
@@ -81,7 +94,7 @@ function useSkipOnError(active, onNext) {
 // - 슬라이드 시간보다 긴 영상: 끝까지 재생 후 전환
 // - active=false(전환 중 사라지는 레이어)는 타이머를 걸지 않음
 // ─────────────────────────────────────────
-function VideoPlayer({ asset, transitionTime, onNext, active }) {
+function VideoPlayer({ asset, transitionTime, onNext, active, onReady }) {
   const slideMs = Math.max(3, transitionTime || 10) * 1000;
   const durationMs = (asset.duration || 0) * 1000;
   const playToEnd = durationMs > slideMs;
@@ -129,6 +142,7 @@ function VideoPlayer({ asset, transitionTime, onNext, active }) {
       style={StyleSheet.absoluteFill}
       contentFit="contain"
       nativeControls={false}
+      onFirstFrameRender={onReady}
     />
   );
 }
@@ -136,11 +150,15 @@ function VideoPlayer({ asset, transitionTime, onNext, active }) {
 // ─────────────────────────────────────────
 // 세로 이미지: 위→아래로 천천히 스크롤했다가 일부 되돌아옴
 // ─────────────────────────────────────────
-function PortraitScrollImage({ uri, width, height, screenWidth, screenHeight, transitionTime, onError }) {
+function PortraitScrollImage({ uri, width, height, screenWidth, screenHeight, transitionTime, onError, onReady }) {
   const displayHeight = screenWidth * (height / width);
   const scrollDistance = Math.max(0, displayHeight - screenHeight);
   const translateY = useSharedValue(0);
   const downsampled = computeDownsampledSize(width, height, screenWidth);
+  const source = useMemo(
+    () => ({ uri, width: downsampled.width, height: downsampled.height }),
+    [uri, downsampled.width, downsampled.height]
+  );
 
   useEffect(() => {
     translateY.value = 0;
@@ -164,12 +182,13 @@ function PortraitScrollImage({ uri, width, height, screenWidth, screenHeight, tr
 
   return (
     <AnimatedExpoImage
-      source={{ uri, width: downsampled.width, height: downsampled.height }}
+      source={source}
       style={[styles.portraitImage, { width: screenWidth, height: displayHeight }, animatedStyle]}
       contentFit="cover"
       priority="high"
       cachePolicy="memory"
       transition={0}
+      onLoad={onReady}
       onError={onError}
     />
   );
@@ -178,9 +197,9 @@ function PortraitScrollImage({ uri, width, height, screenWidth, screenHeight, tr
 // ─────────────────────────────────────────
 // 메인 SlideViewer
 // ─────────────────────────────────────────
-export default function SlideViewer({ asset, transitionTime, onNext, active = true }) {
+export default function SlideViewer({ asset, transitionTime, onNext, active = true, onReady }) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const handleError = useSkipOnError(active, onNext);
+  const handleError = useSkipOnError(active, onNext, onReady);
 
   if (!asset) return <View style={styles.container} />;
 
@@ -194,6 +213,7 @@ export default function SlideViewer({ asset, transitionTime, onNext, active = tr
           transitionTime={transitionTime}
           onNext={onNext}
           active={active}
+          onReady={onReady}
         />
       </View>
     );
@@ -215,6 +235,7 @@ export default function SlideViewer({ asset, transitionTime, onNext, active = tr
           screenHeight={screenHeight}
           transitionTime={transitionTime}
           onError={handleError}
+          onReady={onReady}
         />
       </View>
     );
@@ -224,15 +245,16 @@ export default function SlideViewer({ asset, transitionTime, onNext, active = tr
   if (isAnim && portrait) {
     return (
       <View style={styles.container}>
-        <ExpoImage
+        <StableImage
           key={asset.id}
-          source={{ uri: asset.uri }}
+          uri={asset.uri}
           style={StyleSheet.absoluteFill}
           contentFit="contain"
           autoplay
           priority="high"
           cachePolicy="memory"
           transition={0}
+          onLoad={onReady}
           onError={handleError}
         />
       </View>
@@ -243,19 +265,21 @@ export default function SlideViewer({ asset, transitionTime, onNext, active = tr
   const ds = !isAnim
     ? computeLandscapeDownsampledSize(asset.width, asset.height, screenWidth, screenHeight)
     : null;
-  const source = ds ? { uri: asset.uri, width: ds.width, height: ds.height } : { uri: asset.uri };
 
   return (
     <View style={styles.container}>
-      <ExpoImage
+      <StableImage
         key={asset.id}
-        source={source}
+        uri={asset.uri}
+        width={ds?.width}
+        height={ds?.height}
         style={StyleSheet.absoluteFill}
         contentFit="cover"
         autoplay
         priority="high"
         cachePolicy="memory"
         transition={0}
+        onLoad={onReady}
         onError={handleError}
       />
     </View>

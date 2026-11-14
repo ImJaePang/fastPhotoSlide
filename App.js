@@ -9,6 +9,7 @@ import { usePreferences } from './src/hooks/usePreferences';
 import TransitionSlideViewer from './src/components/TransitionSlideViewer';
 import SettingsOverlay from './src/components/SettingsOverlay';
 import AlbumPickerModal from './src/components/AlbumPickerModal';
+import ManualModal from './src/components/ManualModal';
 import NavigationOverlay from './src/components/NavigationOverlay';
 import { Button } from './src/components/ui';
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
@@ -19,7 +20,7 @@ const ERROR_RESTART_MS = 3000; // 오류 발생 시 자동 복구까지 대기 �
 
 /**
  * 렌더링 오류가 나도 앱이 멈춰 있지 않도록 잠시 후 자동으로 다시 시작합니다.
- * (디지털 액자는 사람이 곁에 없는 경우가 많기 때문)
+ * (디지털 액자 앱은 사람이 곁에 없는 경우가 많기 때문)
  */
 class ErrorBoundary extends React.Component {
   state = { hasError: false, error: null, attempt: 0 };
@@ -66,6 +67,7 @@ function App() {
   const [albumId, setAlbumId] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showAlbumPicker, setShowAlbumPicker] = useState(false);
+  const [showManual, setShowManual] = useState(false);
   const [hasPermission, setHasPermission] = useState(null);
   const [booting, setBooting] = useState(true);
   const hideSettingsTimer = useRef(null);
@@ -157,6 +159,11 @@ function App() {
     setShowAlbumPicker(true);
   }, [handleCloseSettings]);
 
+  const handleOpenManual = useCallback(() => {
+    handleCloseSettings();
+    setShowManual(true);
+  }, [handleCloseSettings]);
+
   const handleTogglePlay = useCallback(() => (isPlaying ? pause() : resume()), [isPlaying, pause, resume]);
   const handlePrev = useCallback(() => { if (!showSettings) prev(); }, [prev, showSettings]);
   const handleNext = useCallback(() => { if (!showSettings) next(); }, [next, showSettings]);
@@ -171,6 +178,7 @@ function App() {
       transitionSettings={transitionSettings}
       onTogglePlay={handleTogglePlay}
       onOpenAlbumPicker={handleOpenAlbumPicker}
+      onOpenManual={handleOpenManual}
       onTransitionTimeChange={(v) => updatePrefs({ transitionTime: v })}
       onClose={handleCloseSettings}
       onInteraction={scheduleHideSettings}
@@ -189,6 +197,8 @@ function App() {
       onAlbumSelected={applyAlbum}
     />
   );
+
+  const manualModal = <ManualModal visible={showManual} onClose={() => setShowManual(false)} />;
 
   // ── 권한 거부 화면 ──
   if (hasPermission === false) {
@@ -210,18 +220,20 @@ function App() {
         <StatusBar hidden />
         {!booting && (
           <View style={styles.emptyWrap}>
-            <Text style={[styles.heading, { color: colors.foreground }]}>디지털 액자</Text>
+            <Text style={[styles.heading, { color: colors.foreground }]}>AlbumLoop</Text>
             <Text style={[styles.body, { color: colors.mutedForeground }]}>
-              재생할 앨범을 선택해 슬라이드쇼를 시작하세요.
+              앨범을 고르면 사진과 영상이 끝없이 이어집니다.
             </Text>
             <View style={styles.emptyButtons}>
               <Button title="앨범 선택" size="lg" onPress={() => setShowAlbumPicker(true)} />
               <Button title="설정" size="lg" variant="outline" onPress={openSettings} />
+              <Button title="설명서" size="lg" variant="ghost" onPress={() => setShowManual(true)} />
             </View>
           </View>
         )}
         {settingsOverlay}
         {albumModal}
+        {manualModal}
       </GestureHandlerRootView>
     );
   }
@@ -240,6 +252,7 @@ function App() {
           />
           {settingsOverlay}
           {albumModal}
+          {manualModal}
         </View>
       </NavigationOverlay>
     </GestureHandlerRootView>

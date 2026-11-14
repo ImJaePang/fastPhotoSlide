@@ -31,6 +31,7 @@ export default function SettingsOverlay({
   hasSlides = true,
   onTogglePlay,
   onOpenAlbumPicker,
+  onOpenManual,
   onTransitionTimeChange,
   onTransitionTimeCommit,
   onClose,
@@ -59,7 +60,7 @@ export default function SettingsOverlay({
           <View>
             <Text style={[styles.title, { color: colors.foreground }]}>설정</Text>
             <Text style={{ color: colors.mutedForeground, fontSize: 13, marginTop: 2 }}>
-              디지털 액자 슬라이드쇼를 원하는 대로 조정하세요
+              AlbumLoop 슬라이드쇼를 원하는 대로 조정하세요
             </Text>
           </View>
           <Button title="닫기" variant="ghost" size="sm" onPress={onClose} />
@@ -200,12 +201,13 @@ export default function SettingsOverlay({
             </Card>
 
             <Card style={{ marginTop: 16 }}>
-              <CardTitle>사용 방법</CardTitle>
-              <Text style={[styles.help, { color: colors.mutedForeground }]}>
-                화면 가운데를 탭하면 이 설정이 열립니다.{'\n'}
-                왼쪽/오른쪽 가장자리를 탭하거나 스와이프하면 이전/다음 슬라이드로 이동합니다.{'\n'}
-                설정은 10초간 조작이 없으면 자동으로 닫힙니다.
+              <CardTitle description="조작법, 지원 형식, 액자로 오래 쓰는 팁">사용 설명서</CardTitle>
+              <Text style={[styles.help, { color: colors.mutedForeground, marginBottom: 14 }]}>
+                화면 가운데 탭: 설정 열기
+                {'\n'}
+                좌/우 가장자리 탭 또는 스와이프: 이전/다음 슬라이드
               </Text>
+              <Button title="설명서 보기" variant="outline" onPress={touch(onOpenManual)} />
             </Card>
           </View>
         </ScrollView>
