@@ -2,6 +2,10 @@
 
 React Native + Expo(SDK 55) 안드로이드 디지털 액자 앱. 자세한 내용은 `README.md` 참고.
 
+## 먼저 읽을 것
+
+- 진행 중인 작업과 알아야 할 환경(adb, ComfyUI, 데모 이미지)은 `docs/HANDOFF.md`에 정리돼 있습니다. 새 세션에서는 이 문서부터 읽으세요.
+
 ## 릴리스
 
 - APK 배포는 반드시 `RELEASING.md` 절차를 따릅니다. APK는 저장소에 커밋하지 않습니다(`*.apk` ignore).

@@ -1,0 +1,62 @@
+{
+ "L1_station": {
+  "w": 1344,
+  "h": 768,
+  "lora": "Shinkai_Kyoto_Anime.safetensors",
+  "prompt": "masterpiece, best quality, ultra-detailed anime illustration, wholesome, fully clothed, a girl with silver hair and a red scarf standing on a snowy train station platform at dusk, warm lamp lights, falling snow, cinematic wide shot, detailed background"
+ },
+ "L2_seaside": {
+  "w": 1344,
+  "h": 768,
+  "lora": "Shinkai_Kyoto_Anime.safetensors",
+  "prompt": "masterpiece, best quality, ultra-detailed anime illustration, wholesome, fully clothed, a boy and a girl riding bicycles along a seaside road in summer, bright blue sky, huge clouds, wind, vivid colors, wide shot"
+ },
+ "L3_fireworks": {
+  "w": 1344,
+  "h": 768,
+  "lora": "Shinkai_Kyoto_Anime.safetensors",
+  "prompt": "masterpiece, best quality, ultra-detailed anime illustration, wholesome, fully clothed, a girl with long black hair in a yukata watching fireworks over a river at night, paper lanterns, festival, bokeh lights, wide shot"
+ },
+ "L4_cafe": {
+  "w": 1344,
+  "h": 768,
+  "lora": "Shinkai_Kyoto_Anime.safetensors",
+  "prompt": "masterpiece, best quality, ultra-detailed anime illustration, wholesome, fully clothed, a cozy cafe interior by a rainy window, a girl reading a book with a cup of coffee, warm lighting, raindrops on glass, wide shot"
+ },
+ "L5_knight": {
+  "w": 1344,
+  "h": 768,
+  "lora": "Shinkai_Kyoto_Anime.safetensors",
+  "prompt": "masterpiece, best quality, ultra-detailed anime illustration, wholesome, fully clothed, a fantasy knight girl holding a glowing sword in a flower field at sunrise, petals flying in the wind, epic wide shot"
+ },
+ "L6_rooftop": {
+  "w": 1344,
+  "h": 768,
+  "lora": "Shinkai_Kyoto_Anime.safetensors",
+  "prompt": "masterpiece, best quality, ultra-detailed anime illustration, wholesome, fully clothed, a girl with headphones sitting on a rooftop at sunset overlooking a city, wind blowing her hair, lens flare, wide shot"
+ },
+ "P1_sakura": {
+  "w": 832,
+  "h": 1472,
+  "lora": "Shinkai_Kyoto_Anime.safetensors",
+  "prompt": "masterpiece, best quality, ultra-detailed anime illustration, wholesome, fully clothed, full body vertical illustration, a girl in a school uniform walking down a long staircase through a cherry blossom park, falling petals, tall composition"
+ },
+ "P2_library": {
+  "w": 832,
+  "h": 1472,
+  "lora": "Shinkai_Kyoto_Anime.safetensors",
+  "prompt": "masterpiece, best quality, ultra-detailed anime illustration, wholesome, fully clothed, full body vertical illustration, a mage girl with a tall staff in a magical library with towering bookshelves, glowing runes floating in the air, tall composition"
+ },
+ "P3_neon": {
+  "w": 832,
+  "h": 1472,
+  "lora": "Shinkai_Kyoto_Anime.safetensors",
+  "prompt": "masterpiece, best quality, ultra-detailed anime illustration, wholesome, fully clothed, vertical illustration, a girl holding an umbrella on a neon-lit rainy city street at night, reflections on the wet road, tall buildings, tall composition"
+ },
+ "P4_lighthouse": {
+  "w": 704,
+  "h": 1920,
+  "lora": "Shinkai_Kyoto_Anime.safetensors",
+  "prompt": "masterpiece, best quality, ultra-detailed anime illustration, wholesome, fully clothed, very tall vertical illustration, a lighthouse on a cliff above the sea, a small girl in a yellow raincoat at the bottom looking up, stars and aurora in the sky, tall composition"
+ }
+}

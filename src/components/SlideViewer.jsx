@@ -2,10 +2,11 @@ import React, { useEffect, useMemo } from 'react';
 import { View, StyleSheet, PixelRatio, useWindowDimensions } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import { displayTimeSec, scrollPlan } from '../utils/slideTiming';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSequence,
+  withDelay,
   withTiming,
   Easing,
 } from 'react-native-reanimated';
@@ -20,10 +21,6 @@ const PIXEL_RATIO = PixelRatio.get();
 // 디코딩할 비트맵의 최대 픽셀 수 (약 8MP ≒ 32MB). OOM 방지용 상한.
 const MAX_DECODE_PIXELS = 8_000_000;
 
-// 세로 스크롤 속도 비율: 내려가기 77%, 올라오기 23%
-const SCROLL_DOWN_RATIO = 0.77;
-const SCROLL_UP_RATIO = 0.23;
-const SMOOTH_EASING = Easing.bezier(0.42, 0, 0.58, 1);
 
 // 이미지 로드 실패 시 다음 슬라이드로 넘어가기까지의 대기 시간
 const ERROR_SKIP_MS = 1500;
@@ -164,14 +161,14 @@ function PortraitScrollImage({ uri, width, height, screenWidth, screenHeight, tr
     translateY.value = 0;
     if (scrollDistance <= 0) return;
 
-    const totalAnimMs = Math.max(2000, (transitionTime - 1) * 1000);
-    const scrollDownDuration = totalAnimMs * SCROLL_DOWN_RATIO;
-    const reboundDuration = totalAnimMs * SCROLL_UP_RATIO;
-    const finalPosition = -scrollDistance + scrollDistance * 0.3;
+    // 표시 시간은 slideTiming 유틸과 동일한 계산 (타이머와 어긋나지 않게)
+    const displaySec = displayTimeSec({ width, height, filename: '' }, transitionTime, screenWidth, screenHeight);
+    const { delayMs, durationMs } = scrollPlan(scrollDistance, displaySec);
 
-    translateY.value = withSequence(
-      withTiming(-scrollDistance, { duration: scrollDownDuration, easing: Easing.inOut(Easing.quad) }),
-      withTiming(finalPosition, { duration: reboundDuration, easing: SMOOTH_EASING })
+    // 위 → 아래로 한 번만, 일정한 속도로 부드럽게 (왕복 없음)
+    translateY.value = withDelay(
+      delayMs,
+      withTiming(-scrollDistance, { duration: durationMs, easing: Easing.inOut(Easing.sin) })
     );
   }, [uri, transitionTime, scrollDistance, translateY]);
 

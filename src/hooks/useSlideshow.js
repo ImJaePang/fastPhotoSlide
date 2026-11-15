@@ -1,6 +1,8 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { Image as ExpoImage } from 'expo-image';
+import { Dimensions } from 'react-native';
 import { SlideshowQueue } from '../utils/shuffle';
+import { displayTimeSec } from '../utils/slideTiming';
 
 // 메모리 캐시 GC 주기 (이미지 교체 횟수)
 const MEMORY_GC_INTERVAL = 5;
@@ -77,7 +79,7 @@ export function useSlideshow(assets, transitionTime) {
                 advanceToAsset(nextItem);
                 prefetchNext();
             }
-        }, time * 1000);
+        }, displayTimeSec(asset, time, Dimensions.get('window').width, Dimensions.get('window').height) * 1000);
     }, [clearTimer, prefetchNext, checkMemoryGC, advanceToAsset]);
 
     // slideKey가 변경될 때마다 타이머 재설정 (같은 에셋이어도 확실히 실행)
